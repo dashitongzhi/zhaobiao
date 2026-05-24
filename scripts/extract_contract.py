@@ -75,15 +75,52 @@ class ContractExtractor:
         支持PDF/Word/TXT
         """
         if self.contract_file.endswith('.pdf'):
-            # TODO: 使用 pdfplumber 或 PyPDF2
-            text = ""
+            text = self._parse_pdf()
         elif self.contract_file.endswith('.docx'):
-            # TODO: 使用 python-docx
-            text = ""
+            text = self._parse_docx()
         else:
             with open(self.contract_file, 'r', encoding='utf-8') as f:
                 text = f.read()
 
+        return text
+
+    def _parse_pdf(self) -> str:
+        """解析PDF文档"""
+        try:
+            import pdfplumber
+            with pdfplumber.open(self.contract_file) as pdf:
+                text = ""
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+        except ImportError:
+            try:
+                import PyPDF2
+                with open(self.contract_file, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    text = ""
+                    for page in reader.pages:
+                        text += page.extract_text() + "\n"
+            except ImportError:
+                text = ""
+        return text
+
+    def _parse_docx(self) -> str:
+        """解析Word文档"""
+        try:
+            from docx import Document
+            doc = Document(self.contract_file)
+            text = ""
+            for paragraph in doc.paragraphs:
+                text += paragraph.text + "\n"
+            # 提取表格内容
+            for table in doc.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells]
+                    text += " | ".join(cells) + "\n"
+        except ImportError:
+            text = ""
         return text
 
     def extract_clause(self, text: str, clause_type: str, pattern: str) -> Optional[ContractClause]:
@@ -140,19 +177,21 @@ class ContractExtractor:
         payments = []
         # 查找付款节点模式
         patterns = [
-            r"预付款[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?",
-            r"进度款[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?",
-            r"验收款[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?",
-            r"质保金[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?",
+            (r"预付款[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?", "预付款"),
+            (r"进度款[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?", "进度款"),
+            (r"验收款[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?", "验收款"),
+            (r"质保金[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?", "质保金"),
+            (r"尾款[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?", "尾款"),
+            (r"结清款[：:]\s*(\d+)%?\s*[,，]?\s*[金金额]?\s*([\d,，.]+\s*万元)?", "结清款"),
         ]
 
-        for pattern in patterns:
+        for pattern, ptype in patterns:
             matches = re.findall(pattern, text)
             for m in matches:
                 payments.append({
-                    "type": pattern.split('[')[0].strip('^'),
+                    "type": ptype,
                     "ratio": m[0],
-                    "amount": m[1] if len(m) > 1 else ""
+                    "amount": m[1] if len(m) > 1 and m[1] else ""
                 })
 
         return payments
@@ -180,10 +219,16 @@ class ContractExtractor:
             summary.contract_name = title_match.group(1).strip()
 
         # 提取金额
-        amount_match = re.search(r"合同价款[：:]\s*([\d,，.]+)\s*(?:万元|元)", text)
+        amount_match = re.search(r"(?:合同价款|签约金额|合同总[额金]|总[额金][为是]?)\s*[：:]\s*([\d,，.]+)\s*(?:万元|元)", text)
         if amount_match:
             amount_str = amount_match.group(1).replace(',', '').replace('，', '')
             summary.contract_amount = float(amount_str)
+        else:
+            # 尝试其他模式
+            alt_match = re.search(r"([\d,，.]+)\s*万元", text)
+            if alt_match:
+                amount_str = alt_match.group(1).replace(',', '').replace('，', '')
+                summary.contract_amount = float(amount_str)
 
         # 提取甲乙方
         party_match = re.search(r"甲方[：:]\s*([^\n]+)", text)
@@ -196,10 +241,36 @@ class ContractExtractor:
         # 提取付款条款
         summary.payment_terms = self.extract_payment_terms(text)
 
+        # 提取交付/工期条款
+        delivery_match = re.search(r"(?:交付|交货|完工|实施|工期)[日期时间期限]*[：:]?\s*([^\n]{10,50})", text)
+        if delivery_match:
+            summary.delivery_terms = delivery_match.group(1).strip()
+
+        # 提取验收标准
+        accept_match = re.search(r"(?:验收|竣工)[标准条件程序方式]*[：:]?\s*([^\n]{10,50})", text)
+        if accept_match:
+            summary.acceptance_criteria = accept_match.group(1).strip()
+
         # 提取质保期
-        warranty_match = re.search(r"质保期[：:]\s*(\d+)\s*(个月|年|天)", text)
+        warranty_match = re.search(r"(?:质保期|质量保证期|保修期)[：:]?\s*(\d+)\s*(个月|年|天)", text)
         if warranty_match:
             summary.warranty_period = warranty_match.group(0)
+        else:
+            # 尝试另一种模式
+            warranty_match = re.search(r"质保期[为是]?\s*(\d+)\s*(个月|年|天)", text)
+            if warranty_match:
+                summary.warranty_period = warranty_match.group(0)
+
+        # 提取违约条款
+        penalty_patterns = [
+            r"违约金[：:]\s*([^\n]{20,100})",
+            r"违约责任[：:]\s*([^\n]{20,100})",
+            r"赔偿[：:]\s*([^\n]{20,100})",
+        ]
+        for ppattern in penalty_patterns:
+            pmatch = re.search(ppattern, text)
+            if pmatch:
+                summary.penalty_clauses.append(pmatch.group(1).strip()[:100])
 
         # 检测风险
         summary.risk_warnings = self.detect_risks(text)

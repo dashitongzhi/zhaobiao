@@ -1,0 +1,118 @@
+{
+  "fetch_time": "2026-05-24T10:26:10.609675",
+  "total_count": 11,
+  "filters": {
+    "keywords": [
+      "计算机",
+      "网络",
+      "系统"
+    ],
+    "budget_range": [
+      50000.0,
+      Infinity
+    ],
+    "regions": [],
+    "industries": []
+  },
+  "tenders": [
+    {
+      "title": "清华大学求真书院网络系统、智慧园区及安防建设项目公开招标公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260522_26617780.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "“天镜”气象综合业务实时监控系统2026年软件维护服务公开招标公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260522_26617662.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "临沂地震监测中心站新区业务系统采购项目比选采购公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260523_26618998.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "天津大学信息与网络中心天津大学“接诉即办”平台采购项目快速磋商公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260522_26616944.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "新华医院数字乳腺X射线摄影系统的公开招标公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260524_26620243.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "应用软件--残疾人社会康复服务管理子系统建设项目的公开招标公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260524_26620241.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "上海市浦东新区人民法院专业法官会议系统（2025年升级改造）的公开招标公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260524_26620233.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "公共计算机实验室更新改造的公开招标公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260523_26620198.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "郓城县随官屯镇中学建设工程项目教学设备采购（一期）校园智能化系统项目中标公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260523_26620221.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "2026年自治区基础测绘和自然资源基础要素监测项目-网络安全等级保护（三级）建设项目中标(成...",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260523_26620186.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    },
+    {
+      "title": "新疆维吾尔自治区森林草原防火预警监测系统（雷击火综合调度）建设项目密码应用安全性评估服...",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260523_26620183.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    }
+  ]
+}

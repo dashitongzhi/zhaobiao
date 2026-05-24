@@ -3,14 +3,20 @@
 商务报价生成器
 功能：根据成本估算和竞争策略，生成报价方案
 
+支持从PDF/DOCX提取招标信息，生成报价框架，输出XML/JSON格式
+
 Usage:
     python generate_price.py --budget 5000000 --competitors 3 --output price_bid.md
+    python generate_price.py --parse-tender tender.pdf --output quote.json --format json
 """
 
 import argparse
 import json
-from dataclasses import dataclass
+import re
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 # ============================================================

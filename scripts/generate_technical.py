@@ -9,10 +9,22 @@ Usage:
 
 import argparse
 import json
+import os
 import re
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
+
+# ============================================================
+# 日志配置
+# ============================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # 数据模型
@@ -36,7 +48,174 @@ class ProjectCase:
     contract_amount: float
     completion_date: str
     description: str
-    tech_highlights: list[str]
+    tech_highlights: list[str] = field(default_factory=list)
+
+
+# ============================================================
+# PDF解析器
+# ============================================================
+
+class PDFParser:
+    """PDF文件解析器"""
+
+    @staticmethod
+    def parse(file_path: str) -> str:
+        """
+        解析PDF文件，提取文本内容
+        """
+        import pdfplumber
+
+        text = ""
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+        return text
+
+
+# ============================================================
+# DOCX解析器
+# ============================================================
+
+class DOCXParser:
+    """Word文档解析器"""
+
+    @staticmethod
+    def parse(file_path: str) -> str:
+        """
+        解析Word文档，提取文本内容
+        """
+        from docx import Document
+
+        text = ""
+        doc = Document(file_path)
+
+        # 提取段落
+        for para in doc.paragraphs:
+            if para.text.strip():
+                text += para.text + "\n"
+
+        # 提取表格
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = " | ".join(cell.text.strip() for cell in row.cells)
+                if row_text.strip():
+                    text += row_text + "\n"
+            text += "\n"
+
+        return text
+
+
+# ============================================================
+# 招标文件解析器
+# ============================================================
+
+class TenderParser:
+    """招标文件解析器，支持PDF和Word"""
+
+    # 技术要求关键词
+    QUALIFICATION_KEYWORDS = [
+        "资格", "资质", "投标人", "响应", "承诺", "授权",
+        "营业执照", "法人", "委托人", "证明材料"
+    ]
+
+    TECH_KEYWORDS = [
+        "技术", "规格", "要求", "功能", "性能", "指标",
+        "参数", "系统", "模块", "方案", "设计", "实施",
+        "工期", "进度", "人员", "设备", "材料"
+    ]
+
+    EVALUATION_KEYWORDS = [
+        "评分", "评审", "得分", "权重", "分值", "评标",
+        "技术标", "商务标", "价格"
+    ]
+
+    def __init__(self, tender_file: str):
+        self.tender_file = tender_file
+        self.raw_text = ""
+
+    def parse(self) -> dict:
+        """
+        解析招标文件
+        """
+        ext = os.path.splitext(self.tender_file)[1].lower()
+
+        if ext == '.pdf':
+            logger.info(f"Parsing PDF: {self.tender_file}")
+            self.raw_text = PDFParser.parse(self.tender_file)
+        elif ext in ['.docx', '.doc']:
+            logger.info(f"Parsing DOCX: {self.tender_file}")
+            self.raw_text = DOCXParser.parse(self.tender_file)
+        else:
+            raise ValueError(f"Unsupported file format: {ext}")
+
+        logger.info(f"Extracted {len(self.raw_text)} characters from tender file")
+
+        # 提取项目名称（从标题或第一行）
+        project_name = self._extract_project_name()
+
+        # 分类提取技术要求
+        qualification_reqs = self._extract_by_keywords(self.QUALIFICATION_KEYWORDS)
+        tech_reqs = self._extract_by_keywords(self.TECH_KEYWORDS)
+        eval_reqs = self._extract_by_keywords(self.EVALUATION_KEYWORDS)
+
+        return {
+            'project_name': project_name,
+            'raw_text': self.raw_text,
+            'qualification_requirements': qualification_reqs,
+            'technical_requirements': tech_reqs,
+            'evaluation_criteria': eval_reqs
+        }
+
+    def _extract_project_name(self) -> str:
+        """从文本中提取项目名称"""
+        lines = self.raw_text.strip().split('\n')
+        for line in lines[:10]:
+            line = line.strip()
+            if len(line) > 5 and len(line) < 200:
+                # 排除明显不是项目名的行
+                if not any(k in line for k in ['招标', '公告', '投标人', '授权']):
+                    return line
+        return "未识别项目名称"
+
+    def _extract_by_keywords(self, keywords: list[str]) -> list[dict]:
+        """
+        根据关键词提取相关条款
+        """
+        clauses = []
+        lines = self.raw_text.split('\n')
+
+        current_clause = None
+        clause_id = 0
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # 检查是否包含关键词
+            if any(k in line for k in keywords):
+                clause_id += 1
+                current_clause = {
+                    'id': f"clause_{clause_id}",
+                    'title': self._clean_title(line),
+                    'content': line,
+                    'category': keywords[0] if keywords else 'unknown'
+                }
+                clauses.append(current_clause)
+            elif current_clause and len(line) > 20:
+                # 续写上一条款
+                current_clause['content'] += " " + line
+
+        return clauses
+
+    def _clean_title(self, text: str) -> str:
+        """清理标题，去除编号和特殊字符"""
+        # 去除开头可能的编号如 "1.2.3" 或 "第一章"
+        text = re.sub(r'^[\d一二三四五六七八九十]+[、\.．]+', '', text)
+        text = re.sub(r'^[（）\(\)【】\[\]]+', '', text)
+        return text.strip()[:100]  # 限制标题长度
 
 
 # ============================================================
@@ -55,22 +234,67 @@ class TechnicalProposalGenerator:
     def parse_tender(self) -> dict:
         """
         解析招标文件，提取技术要求
-        实际实现：
-        - PDF文件用 pdfplumber 或 PyPDF2
-        - Word文件用 python-docx
-        - 表格用 tabula-py
+        支持PDF和Word文件
         """
         logger.info(f"Parsing tender file: {self.tender_file}")
-        # TODO: 实现PDF/Word解析
-        return {}
+        parser = TenderParser(self.tender_file)
+        return parser.parse()
 
     def extract_requirements(self, tender_data: dict) -> list[Requirement]:
         """
-        从解析结果中提取技术要求
+        从解析结果中提取技术要求，生成Requirement对象列表
         """
         requirements = []
-        # TODO: 实现条款提取逻辑
+
+        # 处理资格要求
+        for clause in tender_data.get('qualification_requirements', []):
+            req = Requirement(
+                clause_id=clause['id'],
+                title=clause['title'],
+                content=clause['content'],
+                response=self._generate_response(clause['title'], clause['content'], 'qualification'),
+                chapter="第一章 资格证明"
+            )
+            requirements.append(req)
+
+        # 处理技术要求
+        for clause in tender_data.get('technical_requirements', []):
+            req = Requirement(
+                clause_id=clause['id'],
+                title=clause['title'],
+                content=clause['content'],
+                response=self._generate_response(clause['title'], clause['content'], 'technical'),
+                chapter="第二章 技术方案"
+            )
+            requirements.append(req)
+
+        # 处理评审标准
+        for clause in tender_data.get('evaluation_criteria', []):
+            req = Requirement(
+                clause_id=clause['id'],
+                title=clause['title'],
+                content=clause['content'],
+                response=self._generate_response(clause['title'], clause['content'], 'evaluation'),
+                chapter="第三章 评分标准响应"
+            )
+            requirements.append(req)
+
+        logger.info(f"Extracted {len(requirements)} requirements from tender")
         return requirements
+
+    def _generate_response(self, title: str, content: str, req_type: str) -> str:
+        """
+        根据条款类型生成我方响应
+        """
+        if req_type == 'qualification':
+            return f"我方完全满足{title}要求，已准备好相关证明材料，可随时提供查验。"
+
+        elif req_type == 'technical':
+            return f"针对{title}，我方制定了详细的技术方案，确保满足所有技术指标要求。" \
+                   f"具体实施方案包括：系统设计、设备选型、施工工艺、质量控制等全面措施。"
+
+        elif req_type == 'evaluation':
+            return f"我方将严格按照评分标准要求准备投标文件，确保在各项评审指标中获得高分。"
 
     def generate_chapter(self, chapter_title: str, requirements: list[Requirement]) -> str:
         """

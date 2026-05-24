@@ -1,0 +1,26 @@
+{
+  "fetch_time": "2026-05-24T10:43:08.752792",
+  "total_count": 1,
+  "filters": {
+    "keywords": [
+      "计算机"
+    ],
+    "budget_range": [
+      100000.0,
+      10000000.0
+    ],
+    "regions": [],
+    "industries": []
+  },
+  "tenders": [
+    {
+      "title": "公共计算机实验室更新改造的公开招标公告",
+      "source": "ccgp.gov.cn",
+      "url": "https://www.ccgp.gov.cn/202605/t20260523_26620198.htm",
+      "publish_date": "",
+      "deadline": "",
+      "budget": null,
+      "region": ""
+    }
+  ]
+}
